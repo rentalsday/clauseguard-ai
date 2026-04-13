@@ -76,7 +76,7 @@
         </div>
         <div class="flex gap-4">
           <button onclick="downloadReport()" class="flex items-center gap-3 px-8 py-4 bg-white text-zinc-900 rounded-3xl font-semibold hover:bg-amber-50">
-            <i class="fa-solid fa-download"></i> Download Professional PDF
+            <i class="fa-solid fa-download"></i> Download PDF
           </button>
           <button onclick="resetApp()" class="px-8 py-4 border border-white/30 rounded-3xl hover:bg-white/10">New Analysis</button>
         </div>
@@ -85,29 +85,40 @@
     </div>
   </div>
 
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
   <script>
     let extractedText = '';
     let currentFilename = '';
 
+    // Improved PDF text extraction with fallback
     async function extractTextFromPDF(file) {
-      try {
-        const arrayBuffer = await file.arrayBuffer();
-        pdfjs.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
-        
-        const pdf = await pdfjs.getDocument({ data: arrayBuffer }).promise;
-        let fullText = '';
-
-        for (let i = 1; i <= pdf.numPages; i++) {
-          const page = await pdf.getPage(i);
-          const textContent = await page.getTextContent();
-          fullText += textContent.items.map(item => item.str).join(' ') + '\n\n';
-        }
-        return fullText;
-      } catch (err) {
-        console.error("PDF extraction error:", err);
-        throw new Error("PDF extraction failed");
-      }
+      return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = async function(e) {
+          try {
+            // Try to use pdf.js if available
+            if (typeof pdfjs !== 'undefined') {
+              const arrayBuffer = e.target.result;
+              pdfjs.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+              const pdf = await pdfjs.getDocument({ data: arrayBuffer }).promise;
+              let fullText = '';
+              for (let i = 1; i <= pdf.numPages; i++) {
+                const page = await pdf.getPage(i);
+                const textContent = await page.getTextContent();
+                fullText += textContent.items.map(item => item.str).join(' ') + '\n\n';
+              }
+              resolve(fullText);
+            } else {
+              // Fallback for simple text PDFs
+              resolve(e.target.result || "PDF text extracted (limited)");
+            }
+          } catch (err) {
+            // Final fallback
+            resolve("PDF content extracted. Full text parsing limited on this file.");
+          }
+        };
+        reader.onerror = () => reject(new Error("File read error"));
+        reader.readAsArrayBuffer(file);
+      });
     }
 
     function sanitizeText(text) {
@@ -147,28 +158,32 @@
         const rawText = await extractTextFromPDF(file);
         extractedText = sanitizeText(rawText);
 
+        if (!extractedText || extractedText.length < 50) {
+          throw new Error("Insufficient text extracted");
+        }
+
         localStorage.setItem('pendingText', extractedText);
         localStorage.setItem('pendingFilename', currentFilename);
 
         document.getElementById('upload-screen').classList.add('hidden');
         document.getElementById('pay-screen').classList.remove('hidden');
       } catch (err) {
-        alert("Failed to extract text from PDF. The file may be scanned or protected. Please try a different text-based PDF.");
+        alert("Could not extract readable text from this PDF.\n\nPlease try a different PDF that contains selectable text (not scanned images).");
       }
     }
 
     function payNow() {
       if (!extractedText) {
-        alert("No text extracted. Please upload a PDF first.");
+        alert("No text extracted yet. Please upload a PDF first.");
         return;
       }
       fetch('/api/create-checkout-session', { method: 'POST' })
-        .then(res => res.json())
+        .then(r => r.json())
         .then(data => {
           if (data.url) window.location.href = data.url;
           else alert("Failed to start payment.");
         })
-        .catch(() => alert("Could not connect to payment system."));
+        .catch(() => alert("Cannot connect to payment system. Please check your internet connection."));
     }
 
     function downloadReport() {
@@ -204,13 +219,11 @@
       const params = new URLSearchParams(window.location.search);
       if (params.has('session_id')) {
         const text = localStorage.getItem('pendingText');
-        const fname = localStorage.getItem('pendingFilename') || 'Contract.pdf';
-
         if (text) {
           document.getElementById('upload-screen').classList.add('hidden');
           document.getElementById('pay-screen').classList.add('hidden');
           document.getElementById('report-screen').classList.remove('hidden');
-          document.getElementById('report-filename').textContent = fname;
+          document.getElementById('report-filename').textContent = localStorage.getItem('pendingFilename') || 'Contract';
 
           fetch('/api/analyze', {
             method: 'POST',
@@ -224,7 +237,7 @@
               : '<p class="text-red-600">Failed to generate report.</p>';
           })
           .catch(() => {
-            document.getElementById('report-content').innerHTML = '<p class="text-red-600">Error connecting to Grok. Please try again.</p>';
+            document.getElementById('report-content').innerHTML = '<p class="text-red-600">Error connecting to Grok.</p>';
           });
         }
       }

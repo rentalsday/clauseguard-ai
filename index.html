@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ClauseGuard • M&A Risk Intelligence</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Space+Grotesk:wght@500;600;700&display=swap');
+    body { font-family: 'Inter', system_ui, sans-serif; }
+    .logo-font { font-family: 'Space Grotesk', sans-serif; }
+    .drag-active { border-color: #0ea5e9; animation: pulse 1.5s infinite; }
+    @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.7; } }
+  </style>
+</head>
+<body class="bg-zinc-950 text-zinc-200 min-h-screen">
+  <nav class="border-b border-zinc-800 bg-zinc-950 sticky top-0 z-50">
+    <div class="max-w-7xl mx-auto px-6 py-5 flex items-center justify-between">
+      <div class="flex items-center gap-3">
+        <div class="w-10 h-10 bg-gradient-to-br from-sky-500 to-blue-600 rounded-2xl flex items-center justify-center text-3xl shadow-lg">📋</div>
+        <h1 class="logo-font text-4xl font-semibold tracking-tighter">ClauseGuard</h1>
+        <span class="text-sky-400 text-sm font-medium px-4 py-1.5 bg-sky-950 border border-sky-800 rounded-3xl">GROK AI</span>
+      </div>
+      <button onclick="resetApp()" class="flex items-center gap-2 px-6 py-3 rounded-3xl bg-zinc-900 hover:bg-zinc-800 border border-zinc-700 text-sm font-medium transition-all">
+        <i class="fa-solid fa-plus"></i> New Analysis
+      </button>
+    </div>
+  </nav>
+
+  <div class="max-w-5xl mx-auto px-6 py-16">
+    <!-- Upload Screen -->
+    <div id="upload-screen">
+      <div class="text-center mb-12">
+        <div class="inline-flex items-center gap-2 bg-emerald-950 text-emerald-400 text-sm font-medium px-6 py-3 rounded-3xl border border-emerald-800 mb-6">
+          <i class="fa-solid fa-shield-halved"></i> SENIOR M&amp;A ATTORNEY AI
+        </div>
+        <h2 class="text-6xl font-semibold tracking-tighter logo-font leading-none mb-4">Instant M&amp;A Risk Reports</h2>
+        <p class="text-2xl text-zinc-400">Upload contract → Pay $500 → Receive professional legal brief</p>
+      </div>
+
+      <div id="dropzone" class="border-3 border-dashed border-zinc-700 hover:border-sky-500 rounded-3xl p-20 text-center transition-all cursor-pointer bg-zinc-900/50"
+           ondrop="handleDrop(event)" ondragover="handleDragOver(event)" ondragleave="handleDragLeave(event)">
+        <div class="mx-auto w-24 h-24 flex items-center justify-center text-7xl mb-8">📤</div>
+        <h3 class="text-3xl font-medium mb-3">Drop your PDF here</h3>
+        <p class="text-zinc-400 mb-8">or</p>
+        <label class="inline-flex items-center px-10 py-5 bg-white text-zinc-900 rounded-3xl font-semibold cursor-pointer hover:shadow-2xl transition-all">
+          <i class="fa-solid fa-file-pdf mr-3 text-2xl"></i>
+          SELECT PDF CONTRACT
+          <input type="file" accept="application/pdf" class="hidden" onchange="handleFileSelect(event)">
+        </label>
+        <p class="text-xs text-zinc-500 mt-10">Maximum 20 MB • Secure client-side extraction</p>
+      </div>
+    </div>
+
+    <!-- Pay Screen -->
+    <div id="pay-screen" class="hidden max-w-2xl mx-auto bg-zinc-900 rounded-3xl p-12 border border-emerald-300">
+      <div class="flex items-center gap-6 mb-10">
+        <i class="fa-solid fa-file-pdf text-6xl text-red-400"></i>
+        <div>
+          <p id="pay-filename" class="text-2xl font-medium"></p>
+          <p class="text-emerald-400">Text extracted • Ready for analysis</p>
+        </div>
+      </div>
+      <div onclick="initiatePayment()" class="cursor-pointer bg-gradient-to-r from-emerald-500 via-teal-500 to-sky-500 hover:brightness-110 text-white rounded-3xl p-10 text-center transition-all active:scale-95 shadow-2xl">
+        <div class="text-5xl font-semibold tracking-tighter mb-2">$500 • Generate Report</div>
+        <p class="text-lg opacity-90">Professional M&amp;A Risk Brief powered by Grok</p>
+      </div>
+      <p class="text-center text-xs text-zinc-500 mt-8">One-time payment • Instant delivery • No subscription</p>
+    </div>
+
+    <!-- Report Screen -->
+    <div id="report-screen" class="hidden">
+      <div class="flex justify-between items-center mb-10">
+        <div>
+          <h1 class="text-5xl font-semibold tracking-tighter">M&amp;A Risk Brief</h1>
+          <p id="report-filename-display" class="text-zinc-400 mt-1"></p>
+        </div>
+        <div class="flex gap-4">
+          <button onclick="downloadProfessionalPDF()" class="flex items-center gap-3 px-8 py-4 bg-white text-zinc-900 rounded-3xl font-semibold hover:bg-amber-50 transition-all">
+            <i class="fa-solid fa-download"></i> Download PDF
+          </button>
+          <button onclick="resetApp()" class="px-8 py-4 border border-white/30 rounded-3xl hover:bg-white/10">New Analysis</button>
+        </div>
+      </div>
+      <div id="report-content" class="bg-white text-zinc-900 rounded-3xl p-16 shadow-2xl leading-relaxed text-[15.2px] prose prose-zinc max-w-none"></div>
+    </div>
+  </div>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+
+  <script>
+    let extractedText = '';
+    let currentFilename = '';
+
+    async function extractTextFromPDF(file) {
+      const arrayBuffer = await file.arrayBuffer();
+      pdfjs.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+      const pdf = await pdfjs.getDocument({ data: arrayBuffer }).promise;
+      let fullText = '';
+      for (let i = 1; i <= pdf.numPages; i++) {
+        const page = await pdf.getPage(i);
+        const textContent = await page.getTextContent();
+        fullText += textContent.items.map(item => item.str).join(' ') + '\n\n';
+      }
+      return fullText;
+    }
+
+    function sanitizeText(text) {
+      return text.replace(/"/g, "'").replace(/\n+/g, ' ').replace(/\s+/g, ' ').trim();
+    }
+
+    async function handleFileSelect(e) {
+      const file = e.target.files[0];
+      if (file) await processFile(file);
+    }
+
+    async function handleDrop(e) {
+      e.preventDefault();
+      const file = e.dataTransfer.files[0];
+      if (file) await processFile(file);
+    }
+
+    function handleDragOver(e) { 
+      e.preventDefault(); 
+      document.getElementById('dropzone').classList.add('drag-active'); 
+    }
+    function handleDragLeave(e) { 
+      document.getElementById('dropzone').classList.remove('drag-active'); 
+    }
+
+    async function processFile(file) {
+      if (file.size > 20 * 1024 * 1024) return alert("File too large (max 20 MB)");
+      currentFilename = file.name;
+      document.getElementById('pay-filename').textContent = file.name;
+
+      const text = await extractTextFromPDF(file);
+      extractedText = sanitizeText(text);
+
+      localStorage.setItem('pendingText', extractedText);
+      localStorage.setItem('pendingFilename', currentFilename);
+
+      document.getElementById('upload-screen').classList.add('hidden');
+      document.getElementById('pay-screen').classList.remove('hidden');
+    }
+
+    async function initiatePayment() {
+      const res = await fetch('/api/create-checkout-session', { method: 'POST' });
+      const data = await res.json();
+      if (data.url) window.location.href = data.url;
+    }
+
+    async function downloadProfessionalPDF() {
+      const content = document.getElementById('report-content');
+      const canvas = await html2canvas(content, { scale: 2, backgroundColor: "#ffffff" });
+      const { jsPDF } = window.jspdf;
+      const pdf = new jsPDF('p', 'mm', 'a4');
+      
+      const imgWidth = 210;
+      const pageHeight = 297;
+      const imgHeight = (canvas.height * imgWidth) / canvas.width;
+      let heightLeft = imgHeight;
+      let position = 0;
+
+      pdf.addImage(canvas.toDataURL('image/png'), 'PNG', 0, position, imgWidth, imgHeight);
+      heightLeft -= pageHeight;
+
+      while (heightLeft >= 0) {
+        position = heightLeft - imgHeight;
+        pdf.addPage();
+        pdf.addImage(canvas.toDataURL('image/png'), 'PNG', 0, position, imgWidth, imgHeight);
+        heightLeft -= pageHeight;
+      }
+
+      pdf.save(`ClauseGuard-M&A-Risk-Report-${currentFilename.replace('.pdf','') || 'contract'}.pdf`);
+    }
+
+    function resetApp() {
+      window.location.reload();
+    }
+
+    window.onload = function() {
+      const params = new URLSearchParams(window.location.search);
+      if (params.has('session_id')) {
+        const text = localStorage.getItem('pendingText');
+        const fname = localStorage.getItem('pendingFilename') || 'Contract.pdf';
+
+        if (text) {
+          document.getElementById('upload-screen').classList.add('hidden');
+          document.getElementById('pay-screen').classList.add('hidden');
+          document.getElementById('report-screen').classList.remove('hidden');
+          document.getElementById('report-filename-display').textContent = fname;
+
+          fetch('/api/analyze', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({ sessionId: params.get('session_id'), text })
+          })
+          .then(r => r.json())
+          .then(data => {
+            document.getElementById('report-content').innerHTML = data.report ? 
+              data.report.replace(/\n/g, '<br><br>') : 
+              '<p class="text-red-600">Failed to generate report.</p>';
+          });
+        }
+      }
+    };
+  </script>
+</body>
+</html>
